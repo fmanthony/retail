@@ -1,0 +1,320 @@
+---
+title: "Sustainability Claims in Fast Fashion and Customers' Buying Intention & WTP: An Analysis"
+author: "Francis Anthony, Nalini Adele Pinto, Sam Gravel, Will Dinneen"
+date: "3/7/2022"
+output:
+  html_notebook:  
+    number_sections: yes
+    theme: cerulean
+    highlight: kate
+    toc: yes
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+  html_document:
+    number_sections: yes
+    theme: cerulean
+    highlight: kate
+    toc: yes
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+subtitle: _Final Research Project - Retail Analytics BU.450.740.82.SP22_
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::kable(align = "ll", "pipe")
+```
+
+# Complete workspace preliminaries
+
+```{r}
+# set working directory
+setwd("~/Documents/OneDrive - Johns Hopkins/Carey/_Spring 2022/Retail Analytics/R")
+getwd() # check if working directory is set correctly
+rm(list = ls()) # clear workspace 
+```
+
+# Load the required libraries
+
+```{r message = FALSE, warning = FALSE}
+library(tidyverse)
+library(magrittr)
+library(dplyr)
+library(knitr)
+library(tinytex)
+library(car)
+library(carData)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(gbm)
+```
+
+# Load the dataset
+
+```{r}
+stb_wtp <- read.csv("sustainability_wtp.csv")
+stb_wtp_sub <- subset(stb_wtp, select = c(price_expectation, buying_intention, WTP, WTP_relative, sustain_how_important, price_how_important, age, gender)) # Create subset of data with only the required variables
+stb_wtp_sub2 <- subset(stb_wtp_sub, price_expectation!="#NULL!" & buying_intention!="#NULL!" & WTP!="#NULL!" & WTP_relative!="#NULL!" & sustain_how_important!="#NULL!" & price_how_important!="#NULL!" & age!="#NULL!" & gender!="#NULL!") # Remove observations with null values 
+
+#stb_wtp_sub2 <- na.omit(stb_wtp_sub)
+```
+
+# Generate descriptive summary statistics 
+
+Describe summary statistics for the `stb_wtp_sub2` dataset.
+
+```{r}
+summary(stb_wtp_sub2)
+```
+# Declare as numeric variables and regenerate summary statistics
+
+```{r}
+stb_wtp_sub2$WTP <- as.numeric(stb_wtp_sub2$WTP)
+stb_wtp_sub2$price_expectation <- as.numeric(stb_wtp_sub2$price_expectation)
+stb_wtp_sub2$buying_intention <- as.numeric(stb_wtp_sub2$buying_intention)
+stb_wtp_sub2$WTP_relative <- as.numeric(stb_wtp_sub2$WTP_relative)
+stb_wtp_sub2$sustain_how_important <- as.numeric(stb_wtp_sub2$sustain_how_important)
+stb_wtp_sub2$price_how_important <- as.numeric(stb_wtp_sub2$price_how_important)
+stb_wtp_sub2$age <- as.numeric(stb_wtp_sub2$age)
+stb_wtp_sub2$gender <- as.numeric(stb_wtp_sub2$gender)
+summary(stb_wtp_sub2)
+```
+
+# Inspect the dataset by plotting 
+
+Create two-way plots using the `stb_wtp_sub2` dataset. 
+
+```{r fig.cap = "**Two-way plots for all variables**", fig.align="center", message = FALSE, warning = FALSE}
+attach(stb_wtp_sub2) # Attach dataset to R search path
+pairs(stb_wtp_sub2, pch=".") # Generate two-way plots 
+```
+
+# Explore the relationship between sustainability importance for customers and their buying intention
+
+Sustainability for consumer and buying intention appear to have a negative correlation, as can be seen in the graphical output below:
+
+```{r fig.cap = "**Relationship between sustainability importance for consumer and buying intention**", fig.align="center"}
+plot(sustain_how_important,buying_intention)
+lm_stbimp_buyintent = lm(buying_intention ~ sustain_how_important,  data = stb_wtp_sub2)
+abline(lm_stbimp_buyintent, col = "blue")
+```
+
+# Explore the relationship between sustainability importance for customers and their WTP
+
+Sustainability importance for customers and their WTP appear to have a positive correlation, as can be seen in the graphical output below:
+
+```{r fig.cap = "**Relationship between sustainability importance for consumer and WTP**", fig.align="center"}
+plot(WTP ~ sustain_how_important, data=stb_wtp_sub2)
+lm_stbimp_wtp = lm(WTP ~ sustain_how_important,  data = stb_wtp_sub2)
+abline(lm_stbimp_wtp, col = "blue")
+```
+
+# Simple linear regression of `buying_intention` on `sustain_how_important`
+
+There appears to be an inverse, negative correlation between sustainability importance for consumer and buying intention. As the importance of sustainability goes up, the buying intention goes down, as can be seen in the graphical output below.
+
+The estimated regression equation is: 
+
+> Buying intention = 4.41380 + (-0.26111)*`sustain_how_important`
+
+*Coefficient b1 (-0.26111) can be interpreted as the average effect on y (`buying_intention`) of a unit increase in the control (namely, `sustain_how_important`), holding all other factors constant.*
+
+* If the average sustainability importance is 0, we expect the customer to have a pretty high buying intention (4.41380 on a 5-point scale, or an 88% intent to buy)
+* If the sustainability importance is 3, the customer's buying intent comes down to 4.41380+(-0.26111)(3) = (3.63047 on a 5-point scale, or a 73% intent to buy)
+* If the sustainability importance is 5, the customer's buying intent comes down to 4.41380+(-0.26111)(5) = (3.10825 on a 5-point scale, or a 62% intent to buy)
+
+> **SUMMARY**: As the importance of sustainability moves from 0 to 5, there is a ~25% decrease in the customer's buying intention.
+
+```{r fig.cap = "**Relationship between sustainability importance for consumer and buying intention**", fig.align="center"}
+plot(sustain_how_important,buying_intention)
+lm_stbimp_buyintent = lm(buying_intention ~ sustain_how_important,  data = stb_wtp_sub2)
+abline(lm_stbimp_buyintent, col = "blue")
+summary(lm_stbimp_buyintent)
+summary(lm_stbimp_buyintent)$coef
+```
+
+# Simple linear regression of `WTP` on `sustain_how_important`
+
+There appears to be a positive correlation between sustainability importance for customer and WTP. As the importance of sustainability goes up, the WTP goes up, as can be seen in the following estimated regression equation: 
+
+> WTP = 35.369 + (7.094)*`sustain_how_important`
+
+*Coefficient b1 (7.094) can be interpreted as the average effect on y (`WTP`) of a unit increase in the control (namely, `sustain_how_important`), holding all other factors constant.*
+
+* If the average sustainability importance is 0, we expect the customer to have a WTP of $35.
+* If the sustainability importance is 3, the customer's WTP goes up to 35.369+(7.094)*(3) = $57, or a 63% jump from when sustainability importance was 0. 
+* If the sustainability importance is 5, the customer's WTP goes up to 35.369+(7.094)*(5) = $71, or more than a 100% jump from when sustainability importance was 0. 
+
+> **SUMMARY**: As the importance of sustainability moves from 0 to 5, there is more than a 100% jump from when sustainability importance was 0.
+
+```{r fig.cap = "**Relationship between sustainability importance for consumer and WTP**", fig.align="center"}
+
+plot(WTP ~ sustain_how_important, data=stb_wtp_sub2)
+lm_stbimp_wtp = lm(WTP ~ sustain_how_important,  data = stb_wtp_sub2)
+abline(lm_stbimp_wtp, col = "blue")
+summary(lm_stbimp_wtp)
+summary(lm_stbimp_wtp)$coef
+```
+
+# Fit of the simple linear model using R-squared 
+
+The model (via sustainability importance for customer) explains 6% of the variation in WTP.
+
+```{r}
+r_sq = summary(lm_stbimp_wtp)$r.sq
+r_sq
+```
+
+# Predict WTP for average sustainability importance 0.5:50
+
+Let's predict WTP for two sustainability importance data points: 0.5 and 50.
+
+From the output, we find that:
+
+* If the average sustainability importance is 0.5, we expect the WTP to be $40.
+* If the average sustainability importance is 50, we expect the WTP to be $390.
+
+```{r}
+prediction_data <- data.frame(sustain_how_important = c(0.5,  50))
+lm_stbimp_wtp %>% predict(prediction_data)
+```
+
+# Construct 95% Confidence Intervals (CIs)
+
+From the output, we find that the 95% CI for b1 (`sustain_how_important`) is:
+
+* Lower limit: 2.711131
+* Upper limit: 11.47719
+
+Based on this, the message to management is:
+
+> For every 1 unit increase in sustainability importance, there will be an average **increase** in WTP between $2.7 and $11.5.
+
+```{r}
+confint(lm_stbimp_wtp)
+```
+
+# Hypothesis Testing: Verify the relationship between `WTP` and `sustain_how_important`
+
+## Null Hypothesis (H0)
+
+> H0: There is no relationship between `WTP` and `sustain_how_important`.
+In a simple regression, H0: b1 = 0
+
+## Alternative Hypothesis (H1)
+
+> H1: There is some relationship between `WTP` and `sustain_how_important`.
+In a simple regression, H0: b1 != 0
+
+The p-value for the `sustain_how_important` coefficient is 0.00168, which is less than 1% (an unlikely event). 
+
+>**CONCLUSION**: Since the p-value is small, we can infer that there is a relationship between WTP and sustainability importance. Therefore, we reject H0 at the 1% level (meaning we are 99% confident about our prediction).
+
+# Multiple linear regression 
+
+There is a positive relationship between `WTP` and:
+
+* `sustain_how_important`
+* `age`
+
+This makes sense: older people tend to have higher incomes and have a greater WTP. Similarly, we see that people who value sustainability more have a greater WTP.
+
+Conversely, there is an inverse, negative relationship between `WTP` and `price_how_important`. The sign is negative for this relationship, and that makes intuitive sense again. WTP increases when the price factor is less important.
+
+```{r fig.cap = "**Multiple regression of `WTP` on `sustain_how_important`, `age`, price_how_important`, `buying_intention` `price_expectation` and `gender`**", fig.align="center"}
+lm_multi_stb <- lm(WTP ~ sustain_how_important + age + price_how_important + buying_intention + price_expectation + gender, data = stb_wtp_sub2)
+summary(lm_multi_stb)
+avPlots(lm_multi_stb)
+```
+
+# Fit of the multiple linear model using R-squared 
+
+The model explains 23% of the variation in WTP. R-squared always increases as we add additional explanatory variables to the regression. This is why the R-squared value here is higher than the one for `lm_stbimp_wtp` (simple linear regression performed previously in this document), which was 6%.
+
+```{r}
+r_sq = summary(lm_multi_stb)$r.sq
+r_sq
+```
+
+# Create a classic decison tree model (discrete)
+
+## Load the required libraries
+  
+```{r}
+library(rpart) # Library for creating a decision tree
+library(rpart.plot) # Library for plotting a tree
+```
+
+## Create dichotomous variable for prediction
+
+```{r}
+stb_wtp_sub2$buy <- ifelse((stb_wtp_sub2$buying_intention<=3),"Yes","No")
+```
+
+## Generate a random training/validation index that implements a 80/20 split
+
+```{r}
+set.seed(1) # random seed
+TestD = sample(1:163,33) # Pick up 20% random IDs from master data used for "Data_Te"  
+
+Data_Tr = stb_wtp_sub2[-TestD,] # Construct training data
+Data_Te = stb_wtp_sub2[TestD,]  # Construct testing data
+head(Data_Tr)
+```
+
+## Fit the classification tree
+
+```{r}
+set.seed(1) # random seed
+result = rpart(buy ~ .-buying_intention -WTP_relative -price_expectation -price_how_important -age -gender,data = Data_Tr, method="class", parms=list(split="gini")) # Implement CART w/Gini
+result
+```
+
+## Plot the fitted tree and discuss findings
+
+The first question we should ask is the customer is their WTP. This is our root question. The next question to ask is how important sustainability is to them. Querying in this order helps provide an even sharper prediction regarding the outcome (buy vs. not).  
+
+We find that the propensity to buy is **highest*** when:
+
+* Customers' WTP >= $58, and
+* Customers rate the importance of sustainability at the highest possible level (5 on a 5-point scale)
+
+This category has the **lowest Gini index of 0.09**. 
+
+```{r}
+prp(result, type=3, extra=102,nn=TRUE, fallen.leaves=TRUE,faclen=0,varlen=0,shadow.col ="grey" )
+```
+
+##  Check the prediction performance using testing data
+We do this by constructing a confusion matrix.
+
+```{r}
+yhat.result = predict(result,Data_Te,type="class") # To measure how the fitted model performs against unknown & new data, we predict the outcome using Testing Data that we did not use for fitting
+yhat.table  = table(Data_Te$WTP,yhat.result) # Construct the confusion matrix 
+print("==== Class")
+print(yhat.table) # Display the confusion matrix
+```
+
+## Evaluate the quality of predictions
+
+```{r}
+Accuracy  = (yhat.table[1,1]+yhat.table[2,2])/nrow(Data_Te)
+Mis_error = 1 - Accuracy
+Precision = yhat.table[2,2]/(yhat.table[1,2]+yhat.table[2,2])
+Recall    = yhat.table[2,2]/(yhat.table[2,1]+yhat.table[2,2])
+Fvalue    = 2 * Precision * Recall / (Precision + Recall)
+
+print(paste("Accuracy:", Accuracy))
+print(paste("Misclassification Error:",Mis_error ))
+print(paste("Precision:", Precision ))
+print(paste("Recall:", Recall ))
+print(paste("F-Value:", Fvalue ))
+```
+
